@@ -1,0 +1,6 @@
+{
+  "name": "Nercash Payment Intelligence & Orchestration",
+  "description": "Plataforma avançada Nercash de Payment Orchestration, Intelligence Engine com Score de Risco ML, Super Checkout Adaptativo, Automação Low-Code em Grafo (React Flow), Open API, Auditoria e White Label Multi-tenant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,63 @@
+<svg width="400" height="400" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="400" rx="32" fill="#090d16"/>
+  
+  <defs>
+    <linearGradient id="nercash-green-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#4ade80" />
+      <stop offset="50%" stopColor="#22c55e" />
+      <stop offset="100%" stopColor="#15803d" />
+    </linearGradient>
+
+    <linearGradient id="nercash-chrome-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#ffffff" />
+      <stop offset="35%" stopColor="#cbd5e1" />
+      <stop offset="70%" stopColor="#64748b" />
+      <stop offset="100%" stopColor="#334155" />
+    </linearGradient>
+
+    <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <linearGradient id="coin-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#86efac" />
+      <stop offset="100%" stopColor="#22c55e" />
+    </linearGradient>
+  </defs>
+
+  <!-- Circuit Traces Left -->
+  <path d="M40 140H90L115 170" stroke="#22c55e" stroke-width="4" stroke-linecap="round" opacity="0.8" />
+  <circle cx="40" cy="140" r="6" fill="#4ade80" />
+  <path d="M30 190H75L100 220" stroke="#22c55e" stroke-width="4" stroke-linecap="round" opacity="0.9" />
+  <circle cx="30" cy="190" r="6" fill="#4ade80" />
+  <path d="M45 240H105" stroke="#22c55e" stroke-width="4" stroke-linecap="round" opacity="0.7" />
+  <circle cx="45" cy="240" r="6" fill="#4ade80" />
+
+  <!-- Futuristic 3D "N" Letter -->
+  <path d="M90 260L150 80H198L140 260H90Z" fill="url(#nercash-green-grad)" stroke="#86efac" stroke-width="3"/>
+  <path d="M150 80L240 220H190L120 115L150 80Z" fill="#16a34a" opacity="0.9"/>
+  <path d="M160 76L225 76L155 270L100 270L160 76Z" stroke="#4ade80" stroke-width="2.5" fill="none" filter="url(#neon-glow)"/>
+
+  <!-- Futuristic "C / G" Metallic Chrome Shape -->
+  <path d="M185 80H315L285 125H215L190 190H275L265 228H180L185 80Z" fill="url(#nercash-chrome-grad)" stroke="#f8fafc" stroke-width="3"/>
+  <path d="M265 228L215 228L205 260H330L348 205H300L305 190L330 190" fill="url(#nercash-chrome-grad)"/>
+
+  <!-- Circuit Traces Right -->
+  <path d="M220 150H265L285 170" stroke="#4ade80" stroke-width="4" stroke-linecap="round" />
+  <circle cx="285" cy="170" r="6" fill="#86efac" />
+
+  <!-- Glowing Neon Dollar Coin -->
+  <g filter="url(#neon-glow)">
+    <circle cx="300" cy="150" r="40" fill="#0f172a" stroke="url(#coin-glow)" stroke-width="7" />
+    <circle cx="300" cy="150" r="32" fill="#15803d" fill-opacity="0.5" />
+    <text x="300" y="168" text-anchor="middle" font-size="44" font-weight="900" fill="#4ade80" font-family="system-ui, sans-serif">$</text>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="110" y="325" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-style="italic" font-weight="900" fill="#f8fafc" letter-spacing="-1.5">ner</text>
+  <text x="175" y="325" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-style="italic" font-weight="900" fill="#22c55e" letter-spacing="-1.5" filter="url(#neon-glow)">cash</text>
+
+  <!-- Subtitle -->
+  <text x="200" y="355" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#94a3b8" letter-spacing="4" text-anchor="middle">GATEWAY DE PAGAMENTO</text>
+</svg>
