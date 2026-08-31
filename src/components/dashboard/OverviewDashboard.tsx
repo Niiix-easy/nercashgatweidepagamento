@@ -38,28 +38,48 @@ import {
   Sparkle,
   SlidersHorizontal,
   ChevronDown,
-  Download
+  Download,
+  FileText,
+  Camera
 } from 'lucide-react';
+import { DashboardSnapshotModal } from './DashboardSnapshotModal';
 import { PaymentEvent, PaymentIntent } from '../../types/payment';
+import { SecurityHardeningEngine } from '../../services/securityHardening';
 import { RISK_SCORE_HISTORY_30D } from '../../mock/initialData';
-import { GeographicalHeatMap } from './GeographicalHeatMap';
+const GeographicalHeatMap = React.lazy(() => import('./GeographicalHeatMap').then(m => ({ default: m.GeographicalHeatMap })));
 import { BulkCsvUploadModal } from './BulkCsvUploadModal';
 import { GlobalExportDataModal } from './GlobalExportDataModal';
+import { OverviewExportWizard } from './OverviewExportWizard';
 import { TeamActivityHeatmap } from './TeamActivityHeatmap';
 import { AiNaturalLanguageQueryBar, AiParsedFilters } from './AiNaturalLanguageQueryBar';
-import { MlForecastingWidget } from './MlForecastingWidget';
+const MlForecastingWidget = React.lazy(() => import('./MlForecastingWidget').then(m => ({ default: m.MlForecastingWidget })));
 import { TransactionTableWithBulkTagging } from './TransactionTableWithBulkTagging';
-import { GatewayHealthWidget } from './GatewayHealthWidget';
+const GatewayHealthWidget = React.lazy(() => import('./GatewayHealthWidget').then(m => ({ default: m.GatewayHealthWidget })));
 import { AiBatchSuggestionWidget } from './AiBatchSuggestionWidget';
 import { WalletStreamWidget } from './WalletStreamWidget';
 import { SmartInsightsPanel } from './SmartInsightsPanel';
 import { ApiUsageAnalyticsWidget } from './ApiUsageAnalyticsWidget';
 import { GatewayHealthMatrix } from './GatewayHealthMatrix';
 import { GatewayPerformanceHeatmap } from './GatewayPerformanceHeatmap';
+import { GatewayPerformanceComparisonWidget } from './GatewayPerformanceComparisonWidget';
+import { ResourceConsumptionDashboard } from './ResourceConsumptionDashboard';
+import { BrowserPerformanceWidget } from './BrowserPerformanceWidget';
+import { BatchTransactionValidator } from './BatchTransactionValidator';
+import { GatewayPerformanceTrendAnalyzer } from './GatewayPerformanceTrendAnalyzer';
+import { IntelligentAlertTuning } from './IntelligentAlertTuning';
+import { GlobalIndustryBenchmarkWidget } from './GlobalIndustryBenchmarkWidget';
+import { ApiRateUsageWidget } from './ApiRateUsageWidget';
+import { ApiHealthMonitorWidget } from './ApiHealthMonitorWidget';
+import { WebhookAlertMonitor } from './WebhookAlertMonitor';
+import { AnomalyDetectorService } from './AnomalyDetectorService';
+import { LatencyHeatmapWidget } from './LatencyHeatmapWidget';
+import { CashbackPerformanceWidget } from './CashbackPerformanceWidget';
+import { DataLifecycleManager } from '../../services/dataLifecycleManager';
 import {
   ResponsiveContainer,
   LineChart,
   Line,
+  AreaChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -67,9 +87,16 @@ import {
   Legend,
   ReferenceLine,
   Area,
-  ComposedChart
+  ComposedChart,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar
 } from 'recharts';
 import { UploadCloud } from 'lucide-react';
+
+import { PaymentVolumeTrendVisualizer } from './PaymentVolumeTrendVisualizer';
 
 export interface RiskAlertItem {
   id: string;
@@ -101,6 +128,11 @@ export interface FalsePositiveItem {
   timestamp: string;
 }
 
+import { AlertManager } from './AlertManager';
+import { WidgetSuspense } from './WidgetSuspense';
+import { BaaSQuotaWidget } from './BaaSQuotaWidget';
+import { SLOAlertingPanel } from './SLOAlertingPanel';
+
 export const OverviewDashboard: React.FC = () => {
   const { 
     paymentIntents, 
@@ -109,18 +141,41 @@ export const OverviewDashboard: React.FC = () => {
     toggleCircuitBreaker, 
     setActiveTab,
     theme,
-    processPaymentIntent
+    processPaymentIntent,
+    addToast
   } = usePayment();
 
   const [selectedEvent, setSelectedEvent] = useState<PaymentEvent | null>(null);
   const [chartMetric, setChartMetric] = useState<'all' | 'risk_score' | 'anomaly_rate' | 'fraud_amount'>('all');
   const [timeRange, setTimeRange] = useState<'7d' | '14d' | '30d'>('30d');
+  const [baasAlerts, setBaasAlerts] = useState<string[]>([]);
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data && event.data.type === 'BAAS_HEARTBEAT_ALERT') {
+          setBaasAlerts(prev => [event.data.message, ...prev.slice(0, 4)]);
+          addToast('Alerta de Conectividade BaaS', event.data.message, 'warning');
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', handleMessage);
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleMessage);
+      };
+    }
+  }, [addToast]);
 
   // AI Natural Language Query Filter state
   const [aiFilters, setAiFilters] = useState<AiParsedFilters | null>(null);
 
   // Floating Filter Panel State (Region, Currency, Method)
   const [selectedRegion, setSelectedRegion] = useState<'all' | 'br_sudeste' | 'br_sul' | 'br_nordeste' | 'latam' | 'global'>('all');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
   const [selectedCurrency, setSelectedCurrency] = useState<'BRL' | 'USD' | 'EUR' | 'ARS' | 'MXN'>('BRL');
   const [selectedMethodFilter, setSelectedMethodFilter] = useState<'all' | 'pix' | 'credit_card' | 'boleto'>('all');
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState<boolean>(true);
@@ -228,6 +283,8 @@ export const OverviewDashboard: React.FC = () => {
   const [inspectedAlert, setInspectedAlert] = useState<RiskAlertItem | null>(null);
   const [showBulkCsvModal, setShowBulkCsvModal] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
+  const [isSnapshotModalOpen, setIsSnapshotModalOpen] = useState<boolean>(false);
   const [mlModelVersion, setMlModelVersion] = useState<string>('v4.8.2-prod');
 
   // Keep track of already alerted payment intent IDs to avoid duplicate toasts
@@ -261,6 +318,11 @@ export const OverviewDashboard: React.FC = () => {
   };
 
   // Monitor paymentIntents for risk score exceeding threshold
+  useEffect(() => {
+    // Run Data Lifecycle Manager TTL pruning on initial mount
+    DataLifecycleManager.runTtlPruning(90, 365);
+  }, []);
+
   useEffect(() => {
     if (!isAlertsEnabled) return;
 
@@ -419,7 +481,12 @@ export const OverviewDashboard: React.FC = () => {
   const avg30dRiskScore = (filteredData.reduce((acc, curr) => acc + curr.avgRiskScore, 0) / filteredData.length).toFixed(1);
 
   return (
-    <div className="relative space-y-6">
+    <div id="dashboard-overview-container" className="relative space-y-6">
+      <AlertManager />
+      <WidgetSuspense><BaaSQuotaWidget /></WidgetSuspense>
+      <SLOAlertingPanel />
+      <WebhookAlertMonitor />
+      <AnomalyDetectorService />
       {/* FLOATING FILTER PANEL (REGION & CURRENCY DYNAMIC CONTROLS) */}
       <div className="sticky top-20 z-20 flex justify-end">
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/90 bg-white/95 p-2 shadow-xl backdrop-blur-md transition-all dark:border-slate-800/90 dark:bg-slate-900/95">
@@ -511,6 +578,30 @@ export const OverviewDashboard: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {/* Dashboard Snapshot (html2canvas PDF) Trigger */}
+            <button
+              id="dashboard-open-snapshot-modal-btn"
+              type="button"
+              onClick={() => setIsSnapshotModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl border border-teal-400/40 bg-teal-500/20 px-3.5 py-2.5 text-xs font-bold text-teal-200 backdrop-blur-sm transition-all hover:bg-teal-500/30 hover:text-white cursor-pointer"
+              title="Exportar Snapshot de Layout e Métricas em PDF com html2canvas"
+            >
+              <Camera className="h-4 w-4 text-teal-300" />
+              <span>Snapshot (PDF)</span>
+            </button>
+
+            {/* Export Wizard Trigger */}
+            <button
+              id="dashboard-open-export-wizard-btn"
+              type="button"
+              onClick={() => setIsWizardOpen(true)}
+              className="flex items-center gap-2 rounded-xl border border-indigo-400/40 bg-indigo-500/20 px-3.5 py-2.5 text-xs font-bold text-indigo-200 backdrop-blur-sm transition-all hover:bg-indigo-500/30 hover:text-white cursor-pointer"
+              title="Baixar PDF de Métricas de Saúde"
+            >
+              <FileText className="h-4 w-4 text-indigo-400" />
+              <span>Report Wizard</span>
+            </button>
+
             {/* Global Export Data Trigger */}
             <button
               id="dashboard-open-export-modal-btn"
@@ -547,6 +638,22 @@ export const OverviewDashboard: React.FC = () => {
         <div className="pointer-events-none absolute -left-12 -bottom-12 h-48 w-48 rounded-full bg-indigo-500/10 blur-2xl" />
       </div>
 
+      {isLoading ? (
+        <div className="space-y-6 animate-pulse">
+          <div className="h-14 bg-slate-200 dark:bg-slate-800 rounded-2xl w-full"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-32 bg-slate-200 dark:bg-slate-800 rounded-2xl"></div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 h-96 bg-slate-200 dark:bg-slate-800 rounded-2xl"></div>
+            <div className="lg:col-span-1 h-96 bg-slate-200 dark:bg-slate-800 rounded-2xl"></div>
+          </div>
+          <div className="h-64 bg-slate-200 dark:bg-slate-800 rounded-2xl w-full"></div>
+        </div>
+      ) : (
+        <>
       {/* AI-POWERED NATURAL LANGUAGE QUERY BAR */}
       <AiNaturalLanguageQueryBar
         onFiltersChange={(parsed) => setAiFilters(parsed)}
@@ -642,11 +749,47 @@ export const OverviewDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* PLATFORM-WIDE CASHBACK PERFORMANCE & ADOPTION WIDGET */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-6">
+        <CashbackPerformanceWidget />
+        <PaymentVolumeTrendVisualizer />
+      </div>
+
       {/* GATEWAY HEALTH DASHBOARD WIDGET */}
-      <GatewayHealthWidget />
+      <WidgetSuspense><GatewayHealthWidget /></WidgetSuspense>
+
+      {/* GATEWAY PERFORMANCE COMPARISON WIDGET (BAR CHART) */}
+      <GatewayPerformanceComparisonWidget />
+
+      {/* GATEWAY PERFORMANCE TREND ANALYZER (HISTORICAL LATENCY VS LOAD) */}
+      <GatewayPerformanceTrendAnalyzer />
+
+      {/* INTELLIGENT ALERT TUNING & NOISE SUPPRESSION */}
+      <IntelligentAlertTuning />
+
+      {/* RESOURCE CONSUMPTION DASHBOARD (MEMORY, CPU, CACHE & DIAGNOSTIC SNAPSHOT) */}
+      <ResourceConsumptionDashboard />
+
+      {/* BROWSER PERFORMANCE WIDGET (FPS & PERFORMANCE API) */}
+      <BrowserPerformanceWidget />
+
+      {/* BATCH TRANSACTION VALIDATOR */}
+      <BatchTransactionValidator />
 
       {/* AI BATCH SUGGESTION TOOL */}
       <AiBatchSuggestionWidget />
+
+      {/* API HEALTH MONITOR WIDGET */}
+      <ApiHealthMonitorWidget />
+
+      {/* LATENCY HEATMAP WIDGET */}
+      <LatencyHeatmapWidget />
+
+      {/* API RATE USAGE WIDGET */}
+      <ApiRateUsageWidget />
+
+      {/* GLOBAL INDUSTRY BENCHMARK */}
+      <GlobalIndustryBenchmarkWidget />
 
       {/* WEB MONETIZATION WALLET STREAM WIDGET */}
       <WalletStreamWidget />
@@ -1043,6 +1186,168 @@ export const OverviewDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* SECURITY ANOMALIES FEED (ML Categorized Sessions & API Usage Patterns) */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-6">
+        <div className="flex flex-col justify-between gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-center dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-600 text-white shadow-md shadow-rose-600/30">
+              <ShieldAlert className="h-5 w-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Feed de Anomalias de Segurança & API (ML Risk Engine)
+                </h3>
+                <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-bold text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                  IA Ativa
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Categorização de sessões de usuário por nível de risco e bandeiras de padrões atípicos de requisição de API não cobertos por geofencing
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
+              4 Sessões Monitoradas
+            </span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b border-slate-200 bg-slate-50 font-bold text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+              <tr>
+                <th className="p-3">Sessão / Usuário</th>
+                <th className="p-3">Nível de Risco</th>
+                <th className="p-3">Anomalia Identificada (ML API Flag)</th>
+                <th className="p-3">Origem / IP</th>
+                <th className="p-3">Horário</th>
+                <th className="p-3 text-right">Ação Corretiva</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {SecurityHardeningEngine.getSessionAnomalies().map((anomaly, idx) => (
+                <tr key={anomaly.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                  <td className="p-3">
+                    <div className="font-bold text-slate-900 dark:text-white">{anomaly.user}</div>
+                    <div className="font-mono text-[10px] text-slate-500">{anomaly.sessionId}</div>
+                  </td>
+                  <td className="p-3">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                      anomaly.riskLevel === 'CRITICAL' ? 'bg-rose-600 text-white shadow-sm' :
+                      anomaly.riskLevel === 'HIGH' ? 'bg-rose-500/10 text-rose-600 border border-rose-500/30 dark:text-rose-400' :
+                      anomaly.riskLevel === 'MEDIUM' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/30 dark:text-amber-400' :
+                      'bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 dark:text-emerald-400'
+                    }`}>
+                      {anomaly.riskLevel} ({anomaly.riskScore}/100)
+                    </span>
+                  </td>
+                  <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">
+                    {anomaly.anomalyType}
+                  </td>
+                  <td className="p-3 font-mono text-slate-600 dark:text-slate-400">
+                    <div>{anomaly.ipAddress}</div>
+                    <div className="text-[10px] text-slate-400">{anomaly.location}</div>
+                  </td>
+                  <td className="p-3 font-mono text-slate-500">{anomaly.timestamp}</td>
+                  <td className="p-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => alert(`Ação corretiva executada para a sessão ${anomaly.sessionId}: Sessão revogada e IP banido temporariamente do gateway.`)}
+                      className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white transition-all cursor-pointer"
+                    >
+                      Revogar / Banir IP
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ML-POWERED RISK SCORE RADAR CHART BREAKDOWN */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md">
+              <Activity className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Breakdown do Risk Score por Inteligência Artificial (Radar Model)</h3>
+              <p className="text-xs text-slate-500">Análise multidimensional baseada em Velocity, Geography, Device Fingerprint e Transaction Pattern</p>
+            </div>
+          </div>
+          <span className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+            XGBoost ML v4.2
+          </span>
+        </div>
+
+        <div className="h-80 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart cx="50%" cy="50%" outerRadius="80%" data={[
+              { subject: 'Velocidade', A: 85, fullMark: 100 },
+              { subject: 'Geografia', A: 72, fullMark: 100 },
+              { subject: 'Device Fingerprint', A: 90, fullMark: 100 },
+              { subject: 'Transaction Pattern', A: 68, fullMark: 100 },
+              { subject: 'Payload Integrity', A: 95, fullMark: 100 },
+              { subject: 'FIDO2 Biometrics', A: 88, fullMark: 100 }
+            ]}>
+              <PolarGrid stroke="#334155" />
+              <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+              <PolarRadiusAxis angle={30} domain={[0, 100]} />
+              <Radar name="Risk Factor Score" dataKey="A" stroke="#10b981" fill="#10b981" fillOpacity={0.4} />
+              <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', fontSize: '12px' }} />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* API CALLS PER GATEWAY OVER LAST 24 HOURS (RECHARTS) */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md">
+              <Zap className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Volume de Chamadas de API por Gateway (Últimas 24h)</h3>
+              <p className="text-xs text-slate-500">Monitoramento de picos de tráfego e gargalos de latência por adquirente e provedor</p>
+            </div>
+          </div>
+          <span className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs font-bold text-violet-600 dark:text-violet-400">
+            Tempo Real (24h)
+          </span>
+        </div>
+
+        <div className="h-80 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={[
+              { time: '00h', Cielo: 1200, Stone: 950, Redecard: 800, Stripe: 1400 },
+              { time: '03h', Cielo: 600, Stone: 400, Redecard: 350, Stripe: 700 },
+              { time: '06h', Cielo: 900, Stone: 850, Redecard: 600, Stripe: 1100 },
+              { time: '09h', Cielo: 3400, Stone: 2900, Redecard: 2400, Stripe: 4100 },
+              { time: '12h', Cielo: 4800, Stone: 4200, Redecard: 3600, Stripe: 5500 },
+              { time: '15h', Cielo: 4100, Stone: 3800, Redecard: 3100, Stripe: 4900 },
+              { time: '18h', Cielo: 3200, Stone: 2800, Redecard: 2200, Stripe: 3800 },
+              { time: '21h', Cielo: 2100, Stone: 1800, Redecard: 1400, Stripe: 2500 }
+            ]}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+              <XAxis dataKey="time" stroke="#94a3b8" fontSize={11} />
+              <YAxis stroke="#94a3b8" fontSize={11} />
+              <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', fontSize: '12px' }} />
+              <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+              <Area type="monotone" dataKey="Cielo" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
+              <Area type="monotone" dataKey="Stone" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.6} />
+              <Area type="monotone" dataKey="Redecard" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} />
+              <Area type="monotone" dataKey="Stripe" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {/* GEOGRAPHICAL HEAT MAP VISUALIZATION (D3.js) */}
       <GeographicalHeatMap
         selectedRegionFilter={selectedRegion}
@@ -1212,10 +1517,10 @@ export const OverviewDashboard: React.FC = () => {
       </div>
 
       {/* ML-BASED 48-HOUR FORECASTING & SURGE PREDICTION WIDGET */}
-      <MlForecastingWidget />
+      <WidgetSuspense><MlForecastingWidget /></WidgetSuspense>
 
       {/* GEOGRAPHICAL & SECTOR RISK CONCENTRATION HEATMAP */}
-      <GeographicalHeatMap />
+      <WidgetSuspense><GeographicalHeatMap /></WidgetSuspense>
 
       {/* TRANSACTION TABLE WITH BULK TAGGING & DISPLAY DENSITY SUPPORT */}
       <TransactionTableWithBulkTagging />
@@ -1669,6 +1974,9 @@ export const OverviewDashboard: React.FC = () => {
         </div>
       )}
 
+      </>
+      )}
+
       {/* Bulk CSV Upload Modal for ML Risk Engine */}
       <BulkCsvUploadModal
         isOpen={showBulkCsvModal}
@@ -1680,6 +1988,25 @@ export const OverviewDashboard: React.FC = () => {
       <GlobalExportDataModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
+      />
+
+      {/* Overview Export Wizard */}
+      <OverviewExportWizard
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+      />
+
+      {/* Dashboard Snapshot (html2canvas + jsPDF) Modal */}
+      <DashboardSnapshotModal
+        isOpen={isSnapshotModalOpen}
+        onClose={() => setIsSnapshotModalOpen(false)}
+        targetContainerId="dashboard-overview-container"
+        totalVolume={totalVolume}
+        totalTransactions={paymentIntents.length}
+        approvalRate={Number(approvalRate) || 98.2}
+        activeAcquirersCount={acquirers.filter(a => a.status === 'active').length || acquirers.length}
+        selectedRegion={selectedRegion}
+        selectedCurrency={selectedCurrency}
       />
     </div>
   );

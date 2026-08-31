@@ -48,9 +48,23 @@ export const MlForecastingWidget: React.FC = () => {
   const [scenario, setScenario] = useState<'normal' | 'flash_sale' | 'high_risk'>('normal');
   const [appliedStrategies, setAppliedStrategies] = useState<string[]>([]);
   const [activeStrategyToast, setActiveStrategyToast] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [cacheBuster, setCacheBuster] = useState(0);
+
+  const handleForceRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setCacheBuster(prev => prev + 1);
+      setIsRefreshing(false);
+    }, 600);
+  };
 
   // Generate dynamic 48h forecast series based on scenario
   const forecastData: ForecastHourData[] = useMemo(() => {
+    const cacheKey = `ml_forecast_cache_${scenario}_${cacheBuster}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+
     const data: ForecastHourData[] = [];
     const now = new Date();
     const multiplier = scenario === 'flash_sale' ? 2.8 : scenario === 'high_risk' ? 1.4 : 1.0;

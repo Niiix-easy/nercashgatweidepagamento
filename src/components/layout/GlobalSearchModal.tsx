@@ -20,13 +20,14 @@ import {
   Terminal,
   Layers,
   Sparkles,
-  Command
+  Command,
+  Server
 } from 'lucide-react';
 import { PaymentIntent, Customer, RoutingRule, Acquirer } from '../../types/payment';
 
 interface SearchResultItem {
   id: string;
-  category: 'transaction' | 'customer' | 'setting' | 'acquirer' | 'rule';
+  category: 'transaction' | 'customer' | 'setting' | 'acquirer' | 'rule' | 'endpoint' | 'tenant';
   title: string;
   subtitle: string;
   badge?: string;
@@ -46,6 +47,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
     customers, 
     routingRules, 
     acquirers, 
+    tenants,
     setActiveTab,
     toggleTheme,
     currentTenant
@@ -145,6 +147,46 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
         action: () => { setActiveTab('whitelabel'); onClose(); }
       },
       {
+        id: 'nav_intelligence',
+        category: 'setting',
+        title: 'NerCash Intelligence & Analytics',
+        subtitle: 'Insights de IA, análises preditivas e performance de roteamento',
+        badge: 'Intelligence',
+        badgeColor: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300',
+        icon: <Sparkles className="h-4 w-4 text-indigo-500" />,
+        action: () => { setActiveTab('intelligence'); onClose(); }
+      },
+      {
+        id: 'nav_gateway',
+        category: 'setting',
+        title: 'Gateway de Pagamento',
+        subtitle: 'BaaS endpoints, tokens PCI e monitoramento de chargeback',
+        badge: 'Gateway',
+        badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+        icon: <Server className="h-4 w-4 text-emerald-500" />,
+        action: () => { setActiveTab('gateway'); onClose(); }
+      },
+      {
+        id: 'action_refresh_data',
+        category: 'setting',
+        title: 'Refresh Data',
+        subtitle: 'Atualizar dados de telemetria e recarregar painéis',
+        badge: 'Comando',
+        badgeColor: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+        icon: <Command className="h-4 w-4 text-slate-500" />,
+        action: () => { window.location.reload(); }
+      },
+      {
+        id: 'action_clear_cache',
+        category: 'setting',
+        title: 'Clear Cache',
+        subtitle: 'Limpar cache de aplicação e recarregar contexto local',
+        badge: 'Comando',
+        badgeColor: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
+        icon: <Command className="h-4 w-4 text-rose-500" />,
+        action: () => { localStorage.clear(); window.location.reload(); }
+      },
+      {
         id: 'action_theme_toggle',
         category: 'setting',
         title: 'Alternar Tema Claro / Escuro (Dark Mode)',
@@ -242,10 +284,55 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
       }
     });
 
+    // 6. Tenants
+    const allTenants = [
+      currentTenant,
+      ...tenants.filter(t => t.id !== currentTenant.id)
+    ];
+    allTenants.forEach(tenant => {
+      if (!q || tenant.name.toLowerCase().includes(q) || tenant.slug.toLowerCase().includes(q)) {
+        list.push({
+          id: `tenant_${tenant.id}`,
+          category: 'tenant',
+          title: `Tenant: ${tenant.name}`,
+          subtitle: `Slug: ${tenant.slug} • Domínio: ${tenant.customDomain || 'N/A'}`,
+          badge: 'Organization',
+          badgeColor: 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300',
+          icon: <Building2 className="h-4 w-4 text-teal-500" />,
+          action: () => { setActiveTab('whitelabel'); onClose(); }
+        });
+      }
+    });
+
+    // 7. API Endpoints
+    const apiEndpoints = [
+      { path: '/v1/payments', method: 'POST', desc: 'Criar uma nova transação' },
+      { path: '/v1/payments/:id', method: 'GET', desc: 'Recuperar detalhes da transação' },
+      { path: '/v1/payments/:id/refund', method: 'POST', desc: 'Solicitar estorno de pagamento' },
+      { path: '/v1/customers', method: 'GET', desc: 'Listar base de clientes' },
+      { path: '/v1/webhooks', method: 'POST', desc: 'Registrar novo endpoint de webhook' },
+      { path: '/v1/routing/rules', method: 'GET', desc: 'Consultar regras de orquestração' }
+    ];
+
+    apiEndpoints.forEach(ep => {
+      if (!q || ep.path.toLowerCase().includes(q) || ep.desc.toLowerCase().includes(q)) {
+        list.push({
+          id: `ep_${ep.path}`,
+          category: 'endpoint',
+          title: `Endpoint: ${ep.path}`,
+          subtitle: `${ep.method} • ${ep.desc}`,
+          badge: 'API Endpoint',
+          badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300',
+          icon: <Globe className="h-4 w-4 text-purple-500" />,
+          action: () => { setActiveTab('api'); onClose(); }
+        });
+      }
+    });
+
     // Filter by active category tab if selected
     if (activeCategory === 'all') return list;
     return list.filter(item => item.category === activeCategory);
-  }, [query, activeCategory, paymentIntents, customers, routingRules, acquirers, setActiveTab, toggleTheme, onClose]);
+  }, [query, activeCategory, paymentIntents, customers, routingRules, acquirers, tenants, setActiveTab, toggleTheme, currentTenant, onClose]);
 
   // Keyboard navigation
   useEffect(() => {

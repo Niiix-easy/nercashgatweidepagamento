@@ -1,5 +1,99 @@
 @import "tailwindcss";
 
+:root {
+  --app-padding: 1.25rem;
+  --app-font-scale: 1rem;
+  --app-table-py: 0.875rem;
+  --app-card-gap: 1.5rem;
+  --app-element-gap: 1rem;
+}
+
+.density-comfortable {
+  --app-padding: 1.25rem;
+  --app-font-scale: 1rem;
+  --app-table-py: 0.875rem;
+  --app-card-gap: 1.5rem;
+  --app-element-gap: 1rem;
+}
+
+.density-compact {
+  --app-padding: 0.75rem;
+  --app-font-scale: 0.875rem;
+  --app-table-py: 0.5rem;
+  --app-card-gap: 1rem;
+  --app-element-gap: 0.625rem;
+}
+
+.density-compact table td,
+.density-compact table th {
+  padding-top: var(--app-table-py) !important;
+  padding-bottom: var(--app-table-py) !important;
+  font-size: var(--app-font-scale) !important;
+}
+
+.density-compact .p-6 {
+  padding: 1.125rem !important;
+}
+
+.density-compact .p-5 {
+  padding: 0.9rem !important;
+}
+
+.density-compact .space-y-6 > * + * {
+  margin-top: 1.125rem !important;
+}
+
+/* Dense / Data-Dense Mode for extreme analytics & financial operations */
+.density-dense,
+.density-data-dense {
+  --app-padding: 0.375rem;
+  --app-font-scale: 0.75rem;
+  --app-table-py: 0.25rem;
+  --app-card-gap: 0.625rem;
+  --app-element-gap: 0.375rem;
+}
+
+.density-dense table td,
+.density-dense table th,
+.density-data-dense table td,
+.density-data-dense table th {
+  padding-top: var(--app-table-py) !important;
+  padding-bottom: var(--app-table-py) !important;
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+  font-size: var(--app-font-scale) !important;
+}
+
+.density-dense .p-6,
+.density-data-dense .p-6 {
+  padding: 0.75rem !important;
+}
+
+.density-dense .p-5,
+.density-data-dense .p-5 {
+  padding: 0.625rem !important;
+}
+
+.density-dense .p-4,
+.density-data-dense .p-4 {
+  padding: 0.5rem !important;
+}
+
+.density-dense .space-y-6 > * + *,
+.density-data-dense .space-y-6 > * + * {
+  margin-top: 0.75rem !important;
+}
+
+.density-dense .gap-6,
+.density-data-dense .gap-6 {
+  gap: 0.75rem !important;
+}
+
+.density-dense .gap-4,
+.density-data-dense .gap-4 {
+  gap: 0.5rem !important;
+}
+
 @layer base {
   /* High-contrast borders & subtle hover states in dark mode for data-heavy views */
   .dark table thead th {

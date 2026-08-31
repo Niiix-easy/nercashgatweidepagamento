@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { usePayment } from '../../context/PaymentContext';
 import { LiveWebhookDebugger } from './LiveWebhookDebugger';
 import { RateLimitManagement } from './RateLimitManagement';
+import { DataSchemaExplorer } from '../sandbox/DataSchemaExplorer';
+import { ApiSchemaDiffViewer } from './ApiSchemaDiffViewer';
+import { BaaSWebhookSimulator } from './BaaSWebhookSimulator';
+import { BaaSErrorCatalog } from './BaaSErrorCatalog';
+import { ExtendedWebhookDebugger } from './ExtendedWebhookDebugger';
+import { ProviderErrorTranslator } from './ProviderErrorTranslator';
+import { WebhookFailureSimulator } from './WebhookFailureSimulator';
 import { 
   Code2, 
   Send, 
@@ -25,10 +32,14 @@ import {
   Zap,
   Activity,
   Server,
+  ServerCrash,
   Eye,
   Radio,
   Sliders,
-  ShieldAlert
+  ShieldAlert,
+  Database,
+  GitCompare,
+  BookOpen
 } from 'lucide-react';
 import { WebhookSubscription } from '../../types/payment';
 
@@ -43,7 +54,7 @@ export const OpenApiDocsSandbox: React.FC = () => {
     processPaymentIntent
   } = usePayment();
 
-  const [activeTab, setActiveTab] = useState<'docs' | 'keys' | 'webhooks' | 'debugger' | 'ratelimits'>('docs');
+  const [activeTab, setActiveTab] = useState<'docs' | 'keys' | 'webhooks' | 'debugger' | 'ratelimits' | 'schema' | 'diff' | 'baas_webhook_sim' | 'baas_error_catalog' | 'webhook_replay' | 'error_translator' | 'webhook_failure_simulator'>('docs');
   const [selectedLanguage, setSelectedLanguage] = useState<'curl' | 'node' | 'python' | 'php'>('curl');
 
   // Selected Endpoint for interactive tester
@@ -616,6 +627,75 @@ echo $intent->status;`;
             <ShieldAlert className="h-3.5 w-3.5 text-indigo-500" />
             <span>Gestão de Rate Limit</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('schema')}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+              activeTab === 'schema' ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-900 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <Database className="h-3.5 w-3.5 text-indigo-500" />
+            <span>Data Schema Explorer</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('diff')}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+              activeTab === 'diff' ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-900 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <GitCompare className="h-3.5 w-3.5 text-indigo-500" />
+            <span>API Schema Diff</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('baas_webhook_sim')}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+              activeTab === 'baas_webhook_sim' ? 'bg-white text-violet-600 shadow-sm dark:bg-slate-900 dark:text-violet-400 font-bold' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <Radio className="h-3.5 w-3.5 text-violet-500 animate-pulse" />
+            <span>Simulador Webhook BaaS</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('baas_error_catalog')}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+              activeTab === 'baas_error_catalog' ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-900 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
+            <span>Catálogo de Erros BaaS</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('webhook_replay')}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+              activeTab === 'webhook_replay' ? 'bg-white text-violet-600 shadow-sm dark:bg-slate-900 dark:text-violet-400 font-bold' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <RefreshCw className="h-3.5 w-3.5 text-violet-500" />
+            <span>Webhook Replay</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('error_translator')}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+              activeTab === 'error_translator' ? 'bg-white text-orange-600 shadow-sm dark:bg-slate-900 dark:text-orange-400 font-bold' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <ShieldAlert className="h-3.5 w-3.5 text-orange-500" />
+            <span>Provider Error Translator</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('webhook_failure_simulator')}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+              activeTab === 'webhook_failure_simulator' ? 'bg-white text-rose-600 shadow-sm dark:bg-slate-900 dark:text-rose-400 font-bold' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
+            <span>Webhook Failure Sim</span>
+          </button>
         </div>
       </div>
 
@@ -853,18 +933,54 @@ echo $intent->status;`;
                   <span className="text-xs font-bold text-slate-900 dark:text-white">Resposta da API (Live)</span>
                 </div>
 
-                {responseStatus && (
-                  <div className="flex items-center gap-2 text-xs font-mono">
-                    <span className={`rounded px-2 py-0.5 font-bold ${
-                      responseStatus >= 200 && responseStatus < 300 
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
-                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                    }`}>
-                      HTTP {responseStatus}
-                    </span>
-                    <span className="text-slate-400">{responseLatency}ms</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-3">
+                  {responseStatus && (
+                    <div className="flex items-center gap-2 text-xs font-mono">
+                      <span className={`rounded px-2 py-0.5 font-bold ${
+                        responseStatus >= 200 && responseStatus < 300 
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
+                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                      }`}>
+                        HTTP {responseStatus}
+                      </span>
+                      <span className="text-slate-400">{responseLatency}ms</span>
+                    </div>
+                  )}
+
+                  {responseOutput && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const blob = new Blob([JSON.stringify({ endpoint: selectedEndpoint, requestBody: JSON.parse(requestBody), response: responseOutput, status: responseStatus, latencyMs: responseLatency, timestamp: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `nercash_api_session_log_${Date.now()}.json`;
+                          a.click();
+                        }}
+                        className="flex items-center gap-1 rounded-lg bg-sky-600/10 px-2.5 py-1 text-[11px] font-bold text-sky-600 hover:bg-sky-600/20 dark:bg-sky-950 dark:text-sky-400 cursor-pointer"
+                      >
+                        Exportar JSON
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const mdContent = `# Nercash API Compliance Audit Log\n\n- **Endpoint:** ${selectedEndpoint}\n- **HTTP Status:** ${responseStatus}\n- **Latency:** ${responseLatency}ms\n- **Timestamp:** ${new Date().toISOString()}\n\n### Request Body\n\`\`\`json\n${requestBody}\n\`\`\`\n\n### Response Payload\n\`\`\`json\n${JSON.stringify(responseOutput, null, 2)}\n\`\`\``;
+                          const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `nercash_compliance_audit_${Date.now()}.md`;
+                          a.click();
+                        }}
+                        className="flex items-center gap-1 rounded-lg bg-indigo-600/10 px-2.5 py-1 text-[11px] font-bold text-indigo-600 hover:bg-indigo-600/20 dark:bg-indigo-950 dark:text-indigo-400 cursor-pointer"
+                      >
+                        Exportar MD/PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="mt-3">
@@ -1304,6 +1420,40 @@ echo $intent->status;`;
       {/* 5. SUB-TAB: RATE LIMIT MANAGEMENT */}
       {activeTab === 'ratelimits' && (
         <RateLimitManagement />
+      )}
+
+      {/* 6. SUB-TAB: DATA SCHEMA EXPLORER */}
+      {activeTab === 'schema' && (
+        <DataSchemaExplorer />
+      )}
+
+      {/* 7. SUB-TAB: API SCHEMA DIFF */}
+      {activeTab === 'diff' && (
+        <ApiSchemaDiffViewer />
+      )}
+
+      {/* 8. SUB-TAB: BAAS WEBHOOK SIMULATOR */}
+      {activeTab === 'baas_webhook_sim' && (
+        <BaaSWebhookSimulator />
+      )}
+
+      {/* 9. SUB-TAB: BAAS ERROR CATALOG */}
+      {activeTab === 'baas_error_catalog' && (
+        <BaaSErrorCatalog />
+      )}
+
+      {/* 10. SUB-TAB: WEBHOOK REPLAY */}
+      {activeTab === 'webhook_replay' && (
+        <ExtendedWebhookDebugger />
+      )}
+
+      {/* 11. SUB-TAB: PROVIDER ERROR TRANSLATOR */}
+      {activeTab === 'error_translator' && (
+        <ProviderErrorTranslator />
+      )}
+
+      {activeTab === 'webhook_failure_simulator' && (
+        <WebhookFailureSimulator />
       )}
 
       {/* Modal: New API Key */}

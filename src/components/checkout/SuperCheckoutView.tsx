@@ -24,12 +24,14 @@ import {
 import confetti from 'canvas-confetti';
 import { PaymentMethodType } from '../../types/payment';
 import { CheckoutOnboardingWizard } from './CheckoutOnboardingWizard';
+import { CheckoutPerformanceProfiler } from './CheckoutPerformanceProfiler';
+import { Activity } from 'lucide-react';
 
 export const SuperCheckoutView: React.FC = () => {
   const { currentTenant, processPaymentIntent, paymentIntents } = usePayment();
 
   // Mode: Desktop preview or Mobile frame preview
-  const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
+  const [viewMode, setViewMode] = useState<'desktop' | 'mobile' | 'profiler'>('desktop');
   const [showOnboardingWizard, setShowOnboardingWizard] = useState<boolean>(false);
   
   // Checkout Dynamic States
@@ -184,11 +186,23 @@ export const SuperCheckoutView: React.FC = () => {
               <Smartphone className="h-3.5 w-3.5" />
               <span>Mobile View</span>
             </button>
+            <button
+              onClick={() => setViewMode('profiler')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                viewMode === 'profiler' ? 'bg-white text-teal-600 shadow-sm dark:bg-slate-900 dark:text-teal-400' : 'text-slate-500'
+              }`}
+            >
+              <Activity className="h-3.5 w-3.5" />
+              <span>Performance Profiler</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Main Checkout Container */}
+      {viewMode === 'profiler' ? (
+        <CheckoutPerformanceProfiler />
+      ) : (
       <div className={`mx-auto transition-all ${
         viewMode === 'mobile' ? 'max-w-md rounded-[36px] border-[8px] border-slate-800 bg-slate-900 p-3 shadow-2xl' : 'max-w-4xl'
       }`}>
@@ -199,12 +213,16 @@ export const SuperCheckoutView: React.FC = () => {
             style={{ backgroundColor: currentTenant.branding.primaryColor }}
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 font-bold backdrop-blur-sm">
-                <Zap className="h-5 w-5 fill-white" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 font-bold backdrop-blur-sm overflow-hidden">
+                {currentTenant.branding.logoUrl ? (
+                  <img src={currentTenant.branding.logoUrl} alt="Organization Logo" className="h-full w-full object-contain bg-white/10" />
+                ) : (
+                  <Zap className="h-5 w-5 fill-white" />
+                )}
               </div>
               <div>
                 <h3 className="text-sm font-bold tracking-tight">
-                  {currentTenant.branding.logoText}
+                  {currentTenant.branding.organizationName || currentTenant.branding.logoText}
                 </h3>
                 <p className="text-[11px] text-white/80">
                   {currentTenant.branding.badgeText}
@@ -618,6 +636,7 @@ export const SuperCheckoutView: React.FC = () => {
           )}
         </div>
       </div>
+      )}
 
       {/* Onboarding Wizard Modal */}
       <CheckoutOnboardingWizard 

@@ -1,22 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { usePayment } from '../../context/PaymentContext';
-import { Activity, Zap, CheckCircle2, AlertTriangle, RefreshCw, Server, Shield, Globe } from 'lucide-react';
+import { usePayment, useSystemState } from '../../context/PaymentContext';
+import { Activity, Zap, CheckCircle2, AlertTriangle, RefreshCw, Server, Shield, Globe, Bell } from 'lucide-react';
 
 export const GatewayHealthWidget: React.FC = () => {
   const { acquirers } = usePayment();
+  const { getApiStatus, setApiStatus } = useSystemState();
   const [gatewayPings, setGatewayPings] = useState<Record<string, { latency: number; status: 'up' | 'degraded' | 'down'; tps: number }>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     // Initial simulated ping data
-    const initial: Record<string, { latency: number; status: 'up' | 'degraded' | 'down'; tps: number }> = {};
-    acquirers.forEach(acq => {
-      initial[acq.id] = {
-        latency: Math.floor(12 + Math.random() * 25),
-        status: acq.healthStatus || 'up',
-        tps: Math.floor(150 + Math.random() * 450)
-      };
-    });
+    const cachedData = sessionStorage.getItem('gateway_pings_cache');
+    let initial: Record<string, { latency: number; status: 'up' | 'degraded' | 'down'; tps: number }> = {};
+    
+    if (cachedData) {
+      initial = JSON.parse(cachedData);
+    } else {
+      acquirers.forEach(acq => {
+        initial[acq.id] = {
+          latency: Math.floor(12 + Math.random() * 25),
+          status: acq.healthStatus || 'up',
+          tps: Math.floor(150 + Math.random() * 450)
+        };
+      });
+      sessionStorage.setItem('gateway_pings_cache', JSON.stringify(initial));
+    }
+    
     setGatewayPings(initial);
 
     // Live ping jitter interval
@@ -33,6 +42,7 @@ export const GatewayHealthWidget: React.FC = () => {
             tps: Math.max(50, current.tps + Math.floor(Math.random() * 30) - 15)
           };
         });
+        sessionStorage.setItem('gateway_pings_cache', JSON.stringify(next));
         return next;
       });
     }, 3000);
@@ -42,7 +52,18 @@ export const GatewayHealthWidget: React.FC = () => {
 
   const handleManualPing = () => {
     setIsRefreshing(true);
+    sessionStorage.removeItem('gateway_pings_cache');
     setTimeout(() => {
+      const initial: Record<string, { latency: number; status: 'up' | 'degraded' | 'down'; tps: number }> = {};
+      acquirers.forEach(acq => {
+        initial[acq.id] = {
+          latency: Math.floor(12 + Math.random() * 25),
+          status: acq.healthStatus || 'up',
+          tps: Math.floor(150 + Math.random() * 450)
+        };
+      });
+      setGatewayPings(initial);
+      sessionStorage.setItem('gateway_pings_cache', JSON.stringify(initial));
       setIsRefreshing(false);
     }, 800);
   };
@@ -76,7 +97,7 @@ export const GatewayHealthWidget: React.FC = () => {
           }`}
         >
           <RefreshCw className={`h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-          <span>Ping Refresh</span>
+          <span>Force Refresh</span>
         </button>
       </div>
 

@@ -170,8 +170,8 @@ export const IdleSessionLockScreen: React.FC<IdleSessionLockScreenProps> = ({ ch
     setErrorMessage(null);
 
     setTimeout(() => {
-      // Accept PIN '1234', master password, or quick pass
-      if (code === '1234' || code === 'admin' || code === 'nercash' || overridePin !== undefined) {
+      // Accept password '25150605T@pme', PIN '1234', master password, or quick pass
+      if (code === '25150605T@pme' || code === '1234' || code === 'admin' || code === 'nercash' || overridePin !== undefined) {
         setIsLocked(false);
         setIsUnlocking(false);
         lastActivityRef.current = Date.now();
@@ -180,8 +180,8 @@ export const IdleSessionLockScreen: React.FC<IdleSessionLockScreenProps> = ({ ch
         addAuditLog({
           actor: {
             name: 'Maycon Quevedo',
-            email: 'mayconquevedocompartilhar@gmail.com',
-            role: 'Super Admin',
+            email: 'neersoftwarebr@gmail.com',
+            role: 'Super Admin Master & Director',
             ipAddress: '177.136.241.98',
             userAgent: navigator.userAgent
           },
@@ -191,11 +191,11 @@ export const IdleSessionLockScreen: React.FC<IdleSessionLockScreenProps> = ({ ch
           resourceId: 'sess_admin_super',
           status: 'success',
           severity: 'low',
-          details: 'Sessão administrativa desbloqueada com sucesso via autenticação segura PIN/Biometria.'
+          details: 'Sessão administrativa desbloqueada com sucesso via autenticação segura PIN/Senha/Biometria.'
         });
       } else {
         setIsUnlocking(false);
-        setErrorMessage('PIN incorreto. (Dica de teste: 1234)');
+        setErrorMessage('Credencial incorreta. (Senha: 25150605T@pme ou PIN: 1234)');
       }
     }, 400);
   };

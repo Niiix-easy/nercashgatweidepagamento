@@ -300,9 +300,48 @@ export const GeographicalHeatMap: React.FC<GeographicalHeatMapProps> = ({
   const [hoveredRegion, setHoveredRegion] = useState<RegionData | null>(null);
   const [selectedCluster, setSelectedCluster] = useState<FraudRiskCluster | null>(INITIAL_FRAUD_CLUSTERS[0]);
   const [clusterFilter, setClusterFilter] = useState<'all' | 'critical' | 'high' | 'medium' | 'low'>('all');
-  const [clusters, setClusters] = useState<FraudRiskCluster[]>(INITIAL_FRAUD_CLUSTERS);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [cacheBuster, setCacheBuster] = useState(0);
+
+  const handleForceRefresh = () => {
+    setIsRefreshing(true);
+    sessionStorage.removeItem('geo_heatmap_clusters_cache');
+    setTimeout(() => {
+      setCacheBuster(prev => prev + 1);
+      setIsRefreshing(false);
+    }, 600);
+  };
+  const [clusters, setClusters] = useState<FraudRiskCluster[]>(() => {
+    const cached = sessionStorage.getItem('geo_heatmap_clusters_cache');
+    return cached ? JSON.parse(cached) : INITIAL_FRAUD_CLUSTERS;
+  });
+
+  useEffect(() => {
+    if (cacheBuster > 0) {
+      const newClusters = INITIAL_FRAUD_CLUSTERS.map(c => ({
+        ...c,
+        riskScore: Math.floor(Math.random() * 100),
+        transactionsSampled: Math.floor(Math.random() * 50000)
+      }));
+      setClusters(newClusters);
+      sessionStorage.setItem('geo_heatmap_clusters_cache', JSON.stringify(newClusters));
+    }
+  }, [cacheBuster]);
   const [isSimulatingAnalysis, setIsSimulatingAnalysis] = useState<boolean>(false);
   const [simulationStatus, setSimulationStatus] = useState<string | null>(null);
+  const [timeHour, setTimeHour] = useState<number>(14); // 14:00 (2 PM)
+  const [isPlayingTime, setIsPlayingTime] = useState<boolean>(false);
+
+  useEffect(() => {
+    let interval: any = null;
+    if (isPlayingTime) {
+      interval = setInterval(() => {
+        setTimeHour(prev => (prev >= 23 ? 0 : prev + 1));
+      }, 900);
+    }
+    return () => clearInterval(interval);
+  }, [isPlayingTime]);
 
   // Filtered clusters based on selected severity
   const filteredClusters = useMemo(() => {
@@ -486,6 +525,46 @@ export const GeographicalHeatMap: React.FC<GeographicalHeatMapProps> = ({
           <span>{simulationStatus}</span>
         </div>
       )}
+
+      {/* 24-HOUR TIME SCRUBBER CONTROL BAR */}
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setIsPlayingTime(!isPlayingTime)}
+            className={`flex h-9 w-9 items-center justify-center rounded-xl font-bold text-white shadow-sm transition-all cursor-pointer ${
+              isPlayingTime ? 'bg-amber-600 hover:bg-amber-500 animate-pulse' : 'bg-rose-600 hover:bg-rose-500'
+            }`}
+          >
+            {isPlayingTime ? '⏸' : '▶'}
+          </button>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Linha do Tempo 24h</span>
+            <span className="text-sm font-mono font-bold text-slate-900 dark:text-white">
+              {String(timeHour).padStart(2, '0')}:00 - {timeHour >= 18 ? 'Pico Noturno' : timeHour >= 8 ? 'Horário Comercial' : 'Madrugada (Baixo Fluxo)'}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex-1 w-full max-w-md flex items-center gap-3">
+          <span className="font-mono text-xs text-slate-400">00:00</span>
+          <input
+            type="range"
+            min={0}
+            max={23}
+            value={timeHour}
+            onChange={(e) => setTimeHour(Number(e.target.value))}
+            className="w-full accent-rose-600 cursor-pointer h-2 bg-slate-200 rounded-lg dark:bg-slate-700"
+          />
+          <span className="font-mono text-xs text-slate-400">23:00</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-slate-200/80 dark:bg-slate-800 px-3 py-1 font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300">
+            Saúde: {timeHour >= 18 && timeHour <= 21 ? '⚠️ Pico de Anomalias' : '✓ Normal'}
+          </span>
+        </div>
+      </div>
 
       {/* Main Grid: D3 Map Stage (Left 7 cols) & Cluster Detail Panel (Right 5 cols) */}
       <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-12">

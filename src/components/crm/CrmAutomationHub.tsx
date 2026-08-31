@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePayment } from '../../context/PaymentContext';
 import { 
   Workflow, 
-  Users, 
+  Users, CalendarDays, 
   Play, 
   CheckCircle, 
   AlertCircle, 
@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { AutomationGraph, Customer, AutomationNode, AutomationEdge } from '../../types/payment';
 import { WorkflowCanvas } from './WorkflowCanvas';
+import { SubscriptionManager } from './SubscriptionManager';
 import { GraphValidationEngine, ValidationResult, ValidationIssue } from '../../services/graphValidationEngine';
 
 interface WorkflowTemplate {
@@ -281,7 +282,7 @@ export const CrmAutomationHub: React.FC = () => {
     updateCustomerTags
   } = usePayment();
 
-  const [activeSubTab, setActiveSubTab] = useState<'workflows' | 'crm'>('workflows');
+  const [activeSubTab, setActiveSubTab] = useState<'workflows' | 'crm' | 'subscriptions'>('workflows');
   const [selectedAutomation, setSelectedAutomation] = useState<AutomationGraph>(automations[0]);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const [executingStepIndex, setExecutingStepIndex] = useState<number>(-1);
@@ -582,6 +583,16 @@ export const CrmAutomationHub: React.FC = () => {
             >
               <Users className="h-3.5 w-3.5 text-emerald-500" />
               <span>Contatos CRM ({customers.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab('subscriptions')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                activeSubTab === 'subscriptions' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <CalendarDays className="h-3.5 w-3.5 text-violet-500" />
+              <span>Assinaturas</span>
             </button>
           </div>
         </div>
@@ -1245,6 +1256,9 @@ export const CrmAutomationHub: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {activeSubTab === 'subscriptions' && (
+        <SubscriptionManager />
       )}
     </div>
   );

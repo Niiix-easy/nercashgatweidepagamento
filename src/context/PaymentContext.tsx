@@ -44,15 +44,20 @@ interface PaymentContextType {
   auditLogs: AuditLog[];
   activeTab: string;
   theme: 'light' | 'dark';
-  displayDensity: 'comfortable' | 'compact';
+  displayDensity: 'comfortable' | 'compact' | 'dense' | 'data-dense';
   language: 'pt-BR' | 'en-US' | 'es';
   currency: 'BRL' | 'USD' | 'EUR' | 'GBP';
+  privacyMode: boolean;
+  toasts: Array<{ id: string; title: string; message: string; type: 'success' | 'warning' | 'error' | 'info' }>;
   
   // Ações
   toggleTheme: () => void;
-  setDisplayDensity: (density: 'comfortable' | 'compact') => void;
+  setDisplayDensity: (density: 'comfortable' | 'compact' | 'dense' | 'data-dense') => void;
   setLanguage: (lang: 'pt-BR' | 'en-US' | 'es') => void;
   setCurrency: (curr: 'BRL' | 'USD' | 'EUR' | 'GBP') => void;
+  togglePrivacyMode: () => void;
+  addToast: (title: string, message: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  removeToast: (id: string) => void;
   setActiveTab: (tab: string) => void;
   setCurrentTenant: (tenant: Tenant) => void;
   updateTenantBranding: (branding: Tenant['branding'], checkoutTheme: Tenant['checkoutTheme']) => void;
@@ -83,6 +88,8 @@ interface PaymentContextType {
   refundPaymentIntent: (id: string) => Promise<boolean>;
   bulkTagPaymentIntents: (intentIds: string[], tagsToAdd: string[], tagsToRemove?: string[]) => void;
   updatePaymentIntentStatus: (intentIds: string[], status: 'approved' | 'declined') => void;
+  batchReconcile: (intentIds: string[]) => void;
+  markAsFraudulent: (intentIds: string[]) => void;
   
   // Automações & CRM
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'ltv' | 'totalOrders'>) => void;
@@ -111,6 +118,33 @@ interface PaymentContextType {
 }
 
 const PaymentContext = createContext<PaymentContextType | undefined>(undefined);
+
+export interface SystemStateContextType {
+  apiStatuses: Record<string, any>;
+  setApiStatus: (key: string, status: any) => void;
+  getApiStatus: (key: string) => any;
+}
+
+const SystemStateContext = createContext<SystemStateContextType | undefined>(undefined);
+
+export const useSystemState = () => {
+  const context = useContext(SystemStateContext);
+  if (!context) throw new Error('useSystemState must be used within SystemStateProvider');
+  return context;
+};
+
+export const SystemStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [apiStatuses, setApiStatuses] = useState<Record<string, any>>({});
+  const setApiStatus = (key: string, status: any) => {
+    setApiStatuses(prev => ({ ...prev, [key]: status }));
+  };
+  const getApiStatus = (key: string) => apiStatuses[key];
+  return (
+    <SystemStateContext.Provider value={{ apiStatuses, setApiStatus, getApiStatus }}>
+      {children}
+    </SystemStateContext.Provider>
+  );
+};
 
 export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [acquirers, setAcquirers] = useState<Acquirer[]>(INITIAL_ACQUIRERS);
@@ -192,19 +226,66 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       localStorage.setItem('nercash_currency', curr);
     }
   };
-  const [displayDensity, setDisplayDensityState] = useState<'comfortable' | 'compact'>(() => {
+  const [displayDensity, setDisplayDensityState] = useState<'comfortable' | 'compact' | 'dense' | 'data-dense'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('nercash_density');
-      if (saved === 'comfortable' || saved === 'compact') return saved;
+      if (saved === 'comfortable' || saved === 'compact' || saved === 'dense' || saved === 'data-dense') return saved as any;
     }
     return 'comfortable';
   });
 
-  const setDisplayDensity = (density: 'comfortable' | 'compact') => {
+  const setDisplayDensity = (density: 'comfortable' | 'compact' | 'dense' | 'data-dense') => {
     setDisplayDensityState(density);
     if (typeof window !== 'undefined') {
       localStorage.setItem('nercash_density', density);
+      document.documentElement.classList.toggle('density-comfortable', density === 'comfortable');
+      document.documentElement.classList.toggle('density-compact', density === 'compact');
+      document.documentElement.classList.toggle('density-dense', density === 'dense' || density === 'data-dense');
+      document.documentElement.classList.toggle('density-data-dense', density === 'dense' || density === 'data-dense');
     }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      document.documentElement.classList.toggle('density-comfortable', displayDensity === 'comfortable');
+      document.documentElement.classList.toggle('density-compact', displayDensity === 'compact');
+      document.documentElement.classList.toggle('density-dense', displayDensity === 'dense' || displayDensity === 'data-dense');
+      document.documentElement.classList.toggle('density-data-dense', displayDensity === 'dense' || displayDensity === 'data-dense');
+    }
+  }, [displayDensity]);
+
+  // Privacy Mode state for global data masking
+  const [privacyMode, setPrivacyMode] = useState<boolean>(false);
+  const togglePrivacyMode = () => {
+    setPrivacyMode(prev => !prev);
+    addToast(
+      !privacyMode ? 'Modo Privacidade Ativado' : 'Modo Privacidade Desativado',
+      !privacyMode ? 'Dados sensíveis (PAN, CPF, E-mails) mascarados em todas as telas.' : 'Exibição padrão de dados restabelecida.',
+      !privacyMode ? 'info' : 'success'
+    );
+  };
+
+  // Real-time Toast notifications state
+  const [toasts, setToasts] = useState<Array<{ id: string; title: string; message: string; type: 'success' | 'warning' | 'error' | 'info' }>>([
+    {
+      id: 'toast_init',
+      title: 'Sistema de Segurança Ativo',
+      message: 'PCI-DSS Level 1 & Detecção de Anomalias em Tempo Real operando sem ocorrências críticas.',
+      type: 'success'
+    }
+  ]);
+
+  const addToast = (title: string, message: string, type: 'success' | 'warning' | 'error' | 'info' = 'info') => {
+    const id = 'toast_' + Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [{ id, title, message, type }, ...prev.slice(0, 4)]);
+    // Auto dismiss after 6 seconds
+    setTimeout(() => {
+      removeToast(id);
+    }, 6000);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
   };
 
   useEffect(() => {
@@ -216,18 +297,36 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         document.documentElement.classList.remove('dark');
       }
 
+      // BroadcastChannel for cross-tab synchronous theme updates
+      const channel = new BroadcastChannel('nercash_theme_sync_channel');
+      channel.onmessage = (event) => {
+        if (event.data && (event.data === 'light' || event.data === 'dark')) {
+          setTheme(event.data);
+        }
+      };
+
       const handleStorageChange = (e: StorageEvent) => {
         if (e.key === 'nercash_theme' && (e.newValue === 'light' || e.newValue === 'dark')) {
           setTheme(e.newValue);
         }
       };
       window.addEventListener('storage', handleStorageChange);
-      return () => window.removeEventListener('storage', handleStorageChange);
+
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+        channel.close();
+      };
     }
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    if (typeof window !== 'undefined') {
+      const channel = new BroadcastChannel('nercash_theme_sync_channel');
+      channel.postMessage(nextTheme);
+      channel.close();
+    }
   };
 
   const addAuditLog = (logData: Omit<AuditLog, 'id' | 'timestamp' | 'hashSha256'>) => {
@@ -577,6 +676,63 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       details: `${intentIds.length} transações tiveram o status alterado para ${status.toUpperCase()} via Atalhos Globais / Revisão Manual.`
     });
   };
+  
+  const batchReconcile = (intentIds: string[]) => {
+    setPaymentIntents(prev => prev.map(intent => {
+      if (!intentIds.includes(intent.id)) return intent;
+      return {
+        ...intent,
+        tags: Array.from(new Set([...(intent.tags || []), 'Reconciliado'])),
+        updatedAt: new Date().toISOString()
+      };
+    }));
+
+    addAuditLog({
+      actor: {
+        name: 'Maycon Quevedo',
+        email: 'mayconquevedocompartilhar@gmail.com',
+        role: 'Super Admin',
+        ipAddress: '177.136.241.98',
+        userAgent: navigator.userAgent
+      },
+      action: 'TRANSACTIONS_BATCH_RECONCILED',
+      category: 'payment',
+      resourceType: 'PaymentIntent',
+      resourceId: `${intentIds.length}_records`,
+      status: 'success',
+      severity: 'low',
+      details: `${intentIds.length} transações reconciliadas em lote com o extrato bancário do BaaS.`
+    });
+  };
+
+  const markAsFraudulent = (intentIds: string[]) => {
+    setPaymentIntents(prev => prev.map(intent => {
+      if (!intentIds.includes(intent.id)) return intent;
+      return {
+        ...intent,
+        status: 'failed',
+        tags: Array.from(new Set([...(intent.tags || []), 'Suspeita de Fraude', 'Blacklisted'])),
+        updatedAt: new Date().toISOString()
+      };
+    }));
+
+    addAuditLog({
+      actor: {
+        name: 'Maycon Quevedo',
+        email: 'mayconquevedocompartilhar@gmail.com',
+        role: 'Super Admin',
+        ipAddress: '177.136.241.98',
+        userAgent: navigator.userAgent
+      },
+      action: 'TRANSACTIONS_MARKED_FRAUDULENT',
+      category: 'payment',
+      resourceType: 'PaymentIntent',
+      resourceId: `${intentIds.length}_records`,
+      status: 'warning',
+      severity: 'critical',
+      details: `${intentIds.length} transações marcadas como FRAUDULENTAS. Cartões e documentos associados foram para a blacklist.`
+    });
+  };
 
   const saveAutomation = (automation: AutomationGraph) => {
     setAutomations(prev => {
@@ -862,10 +1018,15 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       displayDensity,
       language,
       currency,
+      privacyMode,
+      toasts,
       toggleTheme,
       setDisplayDensity,
       setLanguage,
       setCurrency,
+      togglePrivacyMode,
+      addToast,
+      removeToast,
       setActiveTab,
       setCurrentTenant,
       updateTenantBranding,
@@ -879,6 +1040,8 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       refundPaymentIntent,
       bulkTagPaymentIntents,
       updatePaymentIntentStatus,
+      batchReconcile,
+      markAsFraudulent,
       addCustomer,
       updateCustomerTags,
       saveAutomation,

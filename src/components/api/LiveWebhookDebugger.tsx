@@ -19,8 +19,11 @@ import {
   Lock,
   ArrowRight,
   Zap,
-  Globe
+  Globe,
+  GitCompare,
+  ArrowRightLeft
 } from 'lucide-react';
+import { DiffEditor } from '@monaco-editor/react';
 
 export interface DebuggerHistoryItem {
   id: string;
@@ -229,6 +232,7 @@ export const LiveWebhookDebugger: React.FC = () => {
   ]);
   const [activeLog, setActiveLog] = useState<DebuggerHistoryItem | null>(history[0]);
   const [copiedResponse, setCopiedResponse] = useState<boolean>(false);
+  const [diffViewMode, setDiffViewMode] = useState<'raw' | 'diff'>('raw');
 
   // Switch provider preset
   const handleSelectPreset = (providerId: string) => {
@@ -610,10 +614,38 @@ export const LiveWebhookDebugger: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Response Body JSON */}
+                {/* Response Body & Monaco Diff Viewer Mode */}
                 <div>
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
-                    <span>Corpo da Resposta do Servidor:</span>
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span>Corpo da Resposta do Servidor:</span>
+                      <div className="flex items-center rounded-lg bg-slate-900 border border-slate-800 p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setDiffViewMode('raw')}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                            diffViewMode === 'raw'
+                              ? 'bg-sky-600 text-white shadow-sm'
+                              : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          JSON Raw
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDiffViewMode('diff')}
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                            diffViewMode === 'diff'
+                              ? 'bg-violet-600 text-white shadow-sm'
+                              : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <GitCompare className="h-3 w-3" />
+                          <span>Monaco Diff Viewer</span>
+                        </button>
+                      </div>
+                    </div>
+
                     <button
                       onClick={copyResponseJson}
                       className="flex items-center gap-1 text-sky-400 hover:underline"
@@ -622,9 +654,32 @@ export const LiveWebhookDebugger: React.FC = () => {
                       <span>{copiedResponse ? 'Copiado' : 'Copiar Resposta'}</span>
                     </button>
                   </div>
-                  <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-800 bg-black/70 p-3.5 font-mono text-[11px] text-emerald-400">
-                    <pre>{JSON.stringify(activeLog.responseBody, null, 2)}</pre>
-                  </div>
+
+                  {diffViewMode === 'raw' ? (
+                    <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-800 bg-black/70 p-3.5 font-mono text-[11px] text-emerald-400">
+                      <pre>{JSON.stringify(activeLog.responseBody, null, 2)}</pre>
+                    </div>
+                  ) : (
+                    <div className="h-64 border border-slate-800 rounded-xl overflow-hidden shadow-inner bg-slate-950">
+                      <DiffEditor
+                        height="100%"
+                        language="json"
+                        original={JSON.stringify(activeLog.requestPayload, null, 2)}
+                        modified={JSON.stringify(activeLog.responseBody, null, 2)}
+                        theme="vs-dark"
+                        options={{
+                          renderSideBySide: true,
+                          readOnly: true,
+                          minimap: { enabled: false },
+                          fontSize: 11,
+                          scrollBeyondLastLine: false,
+                          automaticLayout: true,
+                          lineNumbers: 'on',
+                          wordWrap: 'on'
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Headers Sent / Received Tabs */}
@@ -676,18 +731,20 @@ export const LiveWebhookDebugger: React.FC = () => {
                 </button>
               </div>
 
-              <div className="mt-2 space-y-1.5 max-h-36 overflow-y-auto">
+              <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
                 {history.map((item) => (
                   <div
                     key={item.id}
-                    onClick={() => setActiveLog(item)}
-                    className={`flex items-center justify-between rounded-xl border p-2 text-xs cursor-pointer transition-colors ${
+                    className={`flex items-center justify-between rounded-xl border p-2.5 text-xs transition-colors ${
                       activeLog?.id === item.id
                         ? 'border-sky-500 bg-sky-50 dark:border-sky-600 dark:bg-sky-950/40'
                         : 'border-slate-100 bg-slate-50 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-800/40 dark:hover:bg-slate-800'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
+                    <div 
+                      onClick={() => setActiveLog(item)}
+                      className="flex items-center gap-2 cursor-pointer flex-1"
+                    >
                       <span className="font-bold text-sky-600 dark:text-sky-400 font-mono text-[10px]">
                         {item.method}
                       </span>
@@ -703,6 +760,21 @@ export const LiveWebhookDebugger: React.FC = () => {
                       <span className="text-[10px] text-slate-400">
                         {item.latencyMs}ms
                       </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCustomEndpoint(item.endpoint);
+                          setHeadersText(JSON.stringify(item.requestHeaders, null, 2));
+                          setPayloadText(JSON.stringify(item.requestPayload, null, 2));
+                          handleDispatchLiveWebhook();
+                        }}
+                        title="Replay este payload histórico no gateway"
+                        className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white shadow-sm hover:bg-emerald-500 transition-all cursor-pointer"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        <span>Replay</span>
+                      </button>
                     </div>
                   </div>
                 ))}

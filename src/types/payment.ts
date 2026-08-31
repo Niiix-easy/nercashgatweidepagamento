@@ -192,6 +192,8 @@ export interface Tenant {
   customDomain: string;
   branding: {
     logoText: string;
+    organizationName?: string;
+    logoUrl?: string;
     primaryColor: string;
     accentColor: string;
     badgeText: string;

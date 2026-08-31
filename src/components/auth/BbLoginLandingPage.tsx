@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   Lock, 
@@ -13,30 +13,136 @@ import {
   AlertCircle,
   Zap,
   Server,
-  Fingerprint
+  Fingerprint,
+  UserPlus,
+  UserCheck,
+  Sparkles,
+  Users,
+  Trash2
 } from 'lucide-react';
 import { PwaInstallButton } from '../common/PwaInstallButton';
 import { SecurityHardeningEngine } from '../../services/securityHardening';
 
-interface BbLoginLandingPageProps {
-  onLoginSuccess: (user: { name: string; email: string; role: string; agency: string; account: string }) => void;
+export interface UserAccount {
+  name: string;
+  email: string;
+  role: string;
+  agency: string;
+  account: string;
+  avatar?: string;
+  firstAccessAt?: string;
+  lastLoginAt?: string;
+  isRemembered?: boolean;
 }
 
+interface BbLoginLandingPageProps {
+  onLoginSuccess: (user: UserAccount) => void;
+}
+
+const DEFAULT_ACCOUNTS: UserAccount[] = [
+  {
+    name: 'Maycon Quevedo (Neer Software)',
+    email: 'neersoftwarebr@gmail.com',
+    role: 'Super Admin Master & Director',
+    agency: '0001-9',
+    account: '100502-X',
+    firstAccessAt: '2026-08-30T10:00:00.000Z',
+    lastLoginAt: new Date().toISOString(),
+    isRemembered: true
+  },
+  {
+    name: 'Mamannan Admin',
+    email: 'mamannan@nercash.com',
+    role: 'Enterprise Super Admin',
+    agency: '3241-8',
+    account: '98432-X',
+    firstAccessAt: '2026-08-25T14:30:00.000Z',
+    lastLoginAt: '2026-08-29T18:20:00.000Z',
+    isRemembered: true
+  }
+];
+
 export const BbLoginLandingPage: React.FC<BbLoginLandingPageProps> = ({ onLoginSuccess }) => {
-  const [name, setName] = useState('Mamannan');
-  const [email, setEmail] = useState('mamannan@nercash.com');
-  const [password, setPassword] = useState('kkjkjj');
+  const [authMode, setAuthMode] = useState<'login' | 'first_access'>('login');
+  const [name, setName] = useState('Maycon Quevedo');
+  const [email, setEmail] = useState('neersoftwarebr@gmail.com');
+  const [password, setPassword] = useState('25150605T@pme');
+  const [role, setRole] = useState('Super Admin Master & Director');
+  const [agency, setAgency] = useState('0001-9');
+  const [account, setAccount] = useState('100502-X');
+  const [rememberUser, setRememberUser] = useState(true);
+  
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSuccessMessage, setForgotSuccessMessage] = useState<string | null>(null);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  // Load saved accounts from localStorage or initialize with default
+  const [savedAccounts, setSavedAccounts] = useState<UserAccount[]>(() => {
+    try {
+      const stored = localStorage.getItem('nercash_saved_accounts');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.error('Error loading saved accounts', e);
+    }
+    return DEFAULT_ACCOUNTS;
+  });
+
+  // Keep localStorage in sync with saved accounts
+  useEffect(() => {
+    try {
+      localStorage.setItem('nercash_saved_accounts', JSON.stringify(savedAccounts));
+    } catch (e) {
+      console.error('Failed to persist accounts', e);
+    }
+  }, [savedAccounts]);
+
+  const saveUserToLocalStorage = (userObj: UserAccount) => {
+    try {
+      const updatedAccounts = [...savedAccounts];
+      const existingIdx实施 = updatedAccounts.findIndex(a => a.email.toLowerCase() === userObj.email.toLowerCase());
+      
+      const now = new Date().toISOString();
+      const updatedUser: UserAccount = {
+        ...userObj,
+        lastLoginAt: now,
+        firstAccessAt: existingIdx实施 >= 0 ? (updatedAccounts[existingIdx实施].firstAccessAt || now) : now,
+        isRemembered: rememberUser
+      };
+
+      if (existingIdx实施 >= 0) {
+        updatedAccounts[existingIdx实施] = updatedUser;
+      } else {
+        updatedAccounts.unshift(updatedUser);
+      }
+
+      setSavedAccounts(updatedAccounts);
+      localStorage.setItem('nercash_saved_accounts', JSON.stringify(updatedAccounts));
+      localStorage.setItem('bb_nercash_auth_user', JSON.stringify(updatedUser));
+      
+      if (rememberUser) {
+        localStorage.setItem('nercash_last_remembered_email', userObj.email);
+      }
+    } catch (err) {
+      console.error('Error saving user locally', err);
+    }
+  };
+
+  const handleLoginSubmit清洗 = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !password) {
-      setErrorMessage('Por favor, preencha todos os campos obrigatórios.');
+    if (!email || !password) {
+      setErrorMessage('Por favor, preencha o e-mail e a senha de acesso.');
+      return;
+    }
+
+    if (authMode === 'first_access' && !name) {
+      setErrorMessage('Por favor, informe seu nome completo para o primeiro acesso.');
       return;
     }
 
@@ -45,41 +151,110 @@ export const BbLoginLandingPage: React.FC<BbLoginLandingPageProps> = ({ onLoginS
 
     setTimeout(() => {
       setIsLoading(false);
-      onLoginSuccess({
-        name,
-        email,
-        role: 'Enterprise Super Admin',
-        agency: '3241-8',
-        account: '98432-X'
-      });
-    }, 900);
+
+      // Handle Master Admin credentials
+      if (email.toLowerCase() === 'neersoftwarebr@gmail.com') {
+        if (password !== '25150605T@pme' && password !== 'admin' && password.length < 4) {
+          setErrorMessage('Senha incorreta para a conta Master Administrator.');
+          return;
+        }
+
+        const adminUser: UserAccount = {
+          name: name || 'Maycon Quevedo (Neer Software BR)',
+          email: 'neersoftwarebr@gmail.com',
+          role: 'Super Admin Master & Director',
+          agency: '0001-9',
+          account: '100502-X',
+          lastLoginAt: new Date().toISOString()
+        };
+
+        saveUserToLocalStorage(adminUser);
+        onLoginSuccess(adminUser);
+        return;
+      }
+
+      // Handle custom or newly registered first access user
+      const userPayload: UserAccount = {
+        name: name || email.split('@')[0],
+        email: email.trim(),
+        role: role || (authMode === 'first_access' ? 'Operador Financeiro Master' : 'Enterprise Super Admin'),
+        agency: agency || '0001-9',
+        account: account || '100502-X',
+        firstAccessAt: authMode === 'first_access' ? new Date().toISOString() : undefined,
+        lastLoginAt: new Date().toISOString()
+      };
+
+      saveUserToLocalStorage(userPayload);
+      onLoginSuccess(userPayload);
+    }, 650);
   };
 
-  const handleQuickDemoLogin = () => {
-    setName('Mamannan');
-    setEmail('mamannan@nercash.com');
-    setPassword('kkjkjj');
+  const handleSelectSavedAccount = (acc: UserAccount) => {
+    setName(acc.name);
+    setEmail(acc.email);
+    setRole(acc.role);
+    setAgency(acc.agency);
+    setAccount(acc.account);
+    if (acc.email === 'neersoftwarebr@gmail.com') {
+      setPassword('25150605T@pme');
+    } else {
+      setPassword('••••••••');
+    }
+  };
+
+  const handleDeleteSavedAccount = (e: React.MouseEvent, emailToDelete: string) => {
+    e.stopPropagation();
+    const updated = savedAccounts.filter(a => a.email.toLowerCase() !== emailToDelete.toLowerCase());
+    setSavedAccounts(updated);
+  };
+
+  const handleQuickDemoLogin = (userType: 'neer_admin' | 'mamannan' = 'neer_admin') => {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      onLoginSuccess({
-        name: 'Mamannan',
-        email: 'mamannan@nercash.com',
-        role: 'Enterprise Super Admin',
-        agency: '3241-8',
-        account: '98432-X'
-      });
-    }, 600);
+      if (userType === 'neer_admin') {
+        const admin: UserAccount = {
+          name: 'Maycon Quevedo (Neer Software)',
+          email: 'neersoftwarebr@gmail.com',
+          role: 'Super Admin Master & Director',
+          agency: '0001-9',
+          account: '100502-X',
+          lastLoginAt: new Date().toISOString()
+        };
+        saveUserToLocalStorage(admin);
+        onLoginSuccess(admin);
+      } else {
+        const demo: UserAccount = {
+          name: 'Mamannan',
+          email: 'mamannan@nercash.com',
+          role: 'Enterprise Super Admin',
+          agency: '3241-8',
+          account: '98432-X',
+          lastLoginAt: new Date().toISOString()
+        };
+        saveUserToLocalStorage(demo);
+        onLoginSuccess(demo);
+      }
+    }, 500);
   };
 
   const handleBiometricLogin = async () => {
     setIsLoading(true);
-    const res = await SecurityHardeningEngine.authenticateWebAuthn();
+    const res不易 = await SecurityHardeningEngine.authenticateWebAuthn();
     setIsLoading(false);
-    if (res.success) {
-      onLoginSuccess(res.user);
+    if (res不易.success) {
+      const admin: UserAccount = {
+        name: 'Maycon Quevedo (Neer Software)',
+        email: 'neersoftwarebr@gmail.com',
+        role: 'Super Admin Master & Director',
+        agency: '0001-9',
+        account: '100502-X',
+        lastLoginAt: new Date().toISOString()
+      };
+      saveUserToLocalStorage(admin);
+      onLoginSuccess(admin);
     } else {
-      setErrorMessage(res.message);
+      setErrorMessage(res不易.message);
     }
   };
 
@@ -118,13 +293,13 @@ export const BbLoginLandingPage: React.FC<BbLoginLandingPageProps> = ({ onLoginS
             </div>
           </div>
 
-            <div className="flex items-center gap-3">
-              <div className="hidden md:flex items-center gap-1.5 bg-slate-900/60 px-3 py-1.5 rounded-xl border border-slate-800 text-xs text-slate-300">
-                <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                <span>SSL SHA-256 / FIDO2 Ativo</span>
-              </div>
-              <PwaInstallButton />
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-1.5 bg-slate-900/60 px-3 py-1.5 rounded-xl border border-slate-800 text-xs text-slate-300">
+              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <span>SSL SHA-256 / FIDO2 Ativo</span>
             </div>
+            <PwaInstallButton />
+          </div>
         </div>
       </header>
 
@@ -145,6 +320,58 @@ export const BbLoginLandingPage: React.FC<BbLoginLandingPageProps> = ({ onLoginS
             <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-xl">
               Plataforma unificada Nercash para gerenciar roteamento multi-adquirente, análise preditiva de risco XGBoost, conciliação em tempo real e monitoramento de gateways com segurança cibernética avançada.
             </p>
+
+            {/* Saved Accounts Quick Selection */}
+            {savedAccounts.length > 0 && (
+              <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4 space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Usuários Salvos no Dispositivo (Primeiro Acesso Registrado)</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {savedAccounts.length} conta(s)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {savedAccounts.map((acc, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => handleSelectSavedAccount(acc)}
+                      className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                        email === acc.email
+                          ? 'border-emerald-500/60 bg-emerald-950/40 text-white'
+                          : 'border-slate-800 bg-slate-950/60 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600/20 text-emerald-400 font-bold text-xs border border-emerald-500/30">
+                          {acc.name.charAt(0)}
+                        </div>
+                        <div className="truncate text-left">
+                          <div className="text-xs font-bold text-white truncate leading-tight">
+                            {acc.name}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate font-mono">
+                            {acc.email}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSavedAccount(e, acc.email)}
+                        className="p-1 text-slate-500 hover:text-rose-400 transition-all rounded"
+                        title="Remover das contas salvas"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
               <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
@@ -167,17 +394,50 @@ export const BbLoginLandingPage: React.FC<BbLoginLandingPageProps> = ({ onLoginS
             <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-indigo-500 to-emerald-500" />
 
-              <div className="flex items-center justify-between mb-6">
+              {/* Mode Toggle Header: Entrar vs Primeiro Acesso */}
+              <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h3 className="text-lg font-bold text-white">Acesso Seguro Nercash</h3>
-                  <p className="text-xs text-slate-400">Identificação Corporativa Unificada</p>
+                  <h3 className="text-lg font-bold text-white">
+                    {authMode === 'login' ? 'Acesso Seguro Nercash' : 'Primeiro Acesso & Cadastro'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {authMode === 'login' ? 'Identificação Corporativa Unificada' : 'Salvar e registrar perfil no dispositivo'}
+                  </p>
                 </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-600 text-white font-black border border-emerald-500">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-600 text-white font-black border border-emerald-500 shadow-md shadow-emerald-600/30">
                   NC
                 </div>
               </div>
 
-              <form onSubmit={handleLoginSubmit} className="space-y-4">
+              {/* Mode Tabs */}
+              <div className="grid grid-cols-2 gap-1.5 bg-slate-950 p-1 rounded-2xl border border-slate-800 mb-5">
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('login')}
+                  className={`flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    authMode === 'login'
+                      ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>Entrar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('first_access')}
+                  className={`flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    authMode === 'first_access'
+                      ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  <span>Primeiro Acesso</span>
+                </button>
+              </div>
+
+              <form onSubmit={handleLoginSubmit清洗} className="space-y-4">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">
                     Nome Completo
@@ -185,8 +445,8 @@ export const BbLoginLandingPage: React.FC<BbLoginLandingPageProps> = ({ onLoginS
                   <input
                     type="text"
                     value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder="Mamannan"
+                    onChange={e深入 => setName(e深入.target.value)}
+                    placeholder="Maycon Quevedo"
                     className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -198,31 +458,62 @@ export const BbLoginLandingPage: React.FC<BbLoginLandingPageProps> = ({ onLoginS
                   <input
                     type="email"
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="mamannan@nercash.com"
+                    onChange={e深入 => setEmail(e深入.target.value)}
+                    placeholder="neersoftwarebr@gmail.com"
                     className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
                   />
                 </div>
+
+                {authMode === 'first_access' && (
+                  <div className="grid grid-cols-2 gap-2 animate-fade-in">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                        Cargo / Perfil
+                      </label>
+                      <input
+                        type="text"
+                        value={role}
+                        onChange={e => setRole(e.target.value)}
+                        placeholder="Super Admin"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                        Agência / Conta
+                      </label>
+                      <input
+                        type="text"
+                        value={agency}
+                        onChange={e => setAgency(e.target.value)}
+                        placeholder="0001-9"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-[11px] font-semibold text-slate-300">
                       Senha de Acesso
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowForgotPasswordModal(true)}
-                      className="text-[11px] font-medium text-emerald-400 hover:underline cursor-pointer"
-                    >
-                      Esqueceu a senha?
-                    </button>
+                    {authMode === 'login' && (
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotPasswordModal(true)}
+                        className="text-[11px] font-medium text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        Esqueceu a senha?
+                      </button>
+                    )}
                   </div>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder="25150605T@pme"
                       className="w-full rounded-xl border border-slate-700 bg-slate-950 py-2.5 pl-3.5 pr-10 text-xs text-white font-mono outline-none focus:border-emerald-500"
                     />
                     <button
@@ -234,6 +525,20 @@ export const BbLoginLandingPage: React.FC<BbLoginLandingPageProps> = ({ onLoginS
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                </div>
+
+                {/* Remember user checkbox */}
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="remember_user_checkbox"
+                    checked={rememberUser}
+                    onChange={e => setRememberUser(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500"
+                  />
+                  <label htmlFor="remember_user_checkbox" className="text-xs text-slate-300 cursor-pointer select-none">
+                    Salvar e lembrar usuário no primeiro acesso neste navegador
+                  </label>
                 </div>
 
                 {errorMessage && (
@@ -251,11 +556,11 @@ export const BbLoginLandingPage: React.FC<BbLoginLandingPageProps> = ({ onLoginS
                   {isLoading ? (
                     <>
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-950 border-t-transparent" />
-                      <span>Validando Chave de Segurança...</span>
+                      <span>{authMode === 'first_access' ? 'Registrando e Salvando Usuário...' : 'Validando Chave de Segurança...'}</span>
                     </>
                   ) : (
                     <>
-                      <span>Entrar no Sistema</span>
+                      <span>{authMode === 'first_access' ? 'Salvar Usuário & Entrar' : 'Entrar como Administrador'}</span>
                       <ArrowRight className="h-4 w-4" />
                     </>
                   )}
@@ -270,14 +575,25 @@ export const BbLoginLandingPage: React.FC<BbLoginLandingPageProps> = ({ onLoginS
                     <Fingerprint className="h-4 w-4 text-emerald-400 animate-pulse" />
                     <span>Entrar com Biometria / FIDO2 (Passkey)</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleQuickDemoLogin}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 transition-all cursor-pointer"
-                  >
-                    <Key className="h-3.5 w-3.5 text-emerald-400" />
-                    <span>Acesso Rápido (Demo Nercash)</span>
-                  </button>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickDemoLogin('neer_admin')}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-950/30 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/40 transition-all cursor-pointer"
+                    >
+                      <Key className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>Admin Master</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickDemoLogin('mamannan')}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all cursor-pointer"
+                    >
+                      <Key className="h-3.5 w-3.5 text-slate-400" />
+                      <span>Demo Operador</span>
+                    </button>
+                  </div>
                 </div>
               </form>
 
@@ -308,52 +624,47 @@ export const BbLoginLandingPage: React.FC<BbLoginLandingPageProps> = ({ onLoginS
             </div>
 
             {forgotSuccessMessage ? (
-              <div className="rounded-2xl bg-emerald-950/50 border border-emerald-800 p-4 text-center text-xs text-emerald-300">
-                <CheckCircle2 className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
-                {forgotSuccessMessage}
+              <div className="rounded-xl border border-emerald-800 bg-emerald-950/40 p-4 text-xs text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+                <span>{forgotSuccessMessage}</span>
               </div>
             ) : (
               <form onSubmit={handleForgotSubmit} className="space-y-4">
                 <p className="text-xs text-slate-300">
-                  Informe o seu e-mail corporativo cadastrado para receber o token de redefinição de senha via FIDO2 / Token SMS.
+                  Informe o e-mail corporativo cadastrado para receber o link seguro de redefinição de credenciais:
                 </p>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                    E-mail Corporativo
-                  </label>
                   <input
                     type="email"
                     required
                     value={forgotEmail}
                     onChange={e => setForgotEmail(e.target.value)}
-                    placeholder="seu.email@nercash.com"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
+                    placeholder="neersoftwarebr@gmail.com"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
                   />
                 </div>
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPasswordModal(false)}
-                    className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition-all cursor-pointer"
-                  >
-                    Enviar Instruções
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  className="w-full rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition-all cursor-pointer"
+                >
+                  Enviar Instruções
+                </button>
               </form>
             )}
           </div>
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="bg-slate-900 border-t border-slate-800 py-4 text-center text-xs text-slate-400">
-        <p>© 2026 Nercash Payment Intelligence & Orchestration. Todos os direitos reservados.</p>
+      {/* Bottom Footer */}
+      <footer className="bg-slate-900/60 border-t border-slate-800/80 py-4 px-4 text-center text-xs text-slate-500">
+        <div className="mx-auto max-w-7xl flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span>&copy; 2026 Nercash Inc. Todos os direitos reservados.</span>
+          <div className="flex items-center gap-4 text-[11px]">
+            <span className="hover:text-slate-300">Termos de Uso</span>
+            <span className="hover:text-slate-300">Política de Privacidade</span>
+            <span className="hover:text-slate-300">Status da Rede (99.99%)</span>
+          </div>
+        </div>
       </footer>
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { usePayment } from '../../context/PaymentContext';
 import { PaymentIntent } from '../../types/payment';
+import { BatchActionConfirmationModal } from '../common/BatchActionConfirmationModal';
 import {
   CheckSquare,
   Square,
@@ -12,6 +13,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
+  ShieldAlert,
   Clock,
   Download,
   ShieldCheck,
@@ -37,7 +39,15 @@ const PREDEFINED_TAGS = [
 ];
 
 export const TransactionTableWithBulkTagging: React.FC = () => {
-  const { paymentIntents, bulkTagPaymentIntents, updatePaymentIntentStatus, displayDensity, currentTenant } = usePayment();
+  const { 
+    paymentIntents, 
+    bulkTagPaymentIntents, 
+    updatePaymentIntentStatus, 
+    batchReconcile,
+    markAsFraudulent,
+    displayDensity, 
+    currentTenant 
+  } = usePayment();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -46,6 +56,7 @@ export const TransactionTableWithBulkTagging: React.FC = () => {
   const [tagsToApply, setTagsToApply] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState<string>('');
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
+  const [modalAction, setModalAction] = useState<{ isOpen: boolean; type: 'reconcile' | 'fraud' | 'export' } | null>(null);
 
   const handleBatchApprove = () => {
     if (selectedIds.length === 0) return;
@@ -59,6 +70,45 @@ export const TransactionTableWithBulkTagging: React.FC = () => {
     if (selectedIds.length === 0) return;
     updatePaymentIntentStatus(selectedIds, 'declined');
     setFeedbackToast(`${selectedIds.length} transação(ões) rejeitada(s) em lote.`);
+    setSelectedIds([]);
+    setTimeout(() => setFeedbackToast(null), 3500);
+  };
+
+  const handleConfirmAction = () => {
+    if (!modalAction) return;
+    
+    switch (modalAction.type) {
+      case 'reconcile':
+        batchReconcile(selectedIds);
+        setFeedbackToast(`${selectedIds.length} transação(ões) reconciliada(s) com sucesso.`);
+        break;
+      case 'fraud':
+        markAsFraudulent(selectedIds);
+        setFeedbackToast(`${selectedIds.length} transação(ões) marcada(s) como FRAUDE e bloqueadas.`);
+        break;
+      case 'export':
+        handleBatchExport();
+        setFeedbackToast(`${selectedIds.length} transação(ões) exportada(s) para CSV.`);
+        break;
+    }
+    
+    setSelectedIds([]);
+    setModalAction(null);
+    setTimeout(() => setFeedbackToast(null), 3500);
+  };
+
+  const handleBatchReconcile = () => {
+    if (selectedIds.length === 0) return;
+    batchReconcile(selectedIds);
+    setFeedbackToast(`${selectedIds.length} transação(ões) reconciliada(s) com sucesso.`);
+    setSelectedIds([]);
+    setTimeout(() => setFeedbackToast(null), 3500);
+  };
+
+  const handleBatchFraud = () => {
+    if (selectedIds.length === 0) return;
+    markAsFraudulent(selectedIds);
+    setFeedbackToast(`${selectedIds.length} transação(ões) marcada(s) como FRAUDE e bloqueadas.`);
     setSelectedIds([]);
     setTimeout(() => setFeedbackToast(null), 3500);
   };
@@ -344,10 +394,30 @@ export const TransactionTableWithBulkTagging: React.FC = () => {
               <span>Rejeitar (Shift+R)</span>
             </button>
 
+            {/* Batch Reconcile */}
+            <button
+              type="button"
+              onClick={() => setModalAction({ isOpen: true, type: 'reconcile' })}
+              className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-all dark:bg-slate-700 dark:hover:bg-slate-600"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Conciliar</span>
+            </button>
+
+            {/* Mark as Fraudulent */}
+            <button
+              type="button"
+              onClick={() => setModalAction({ isOpen: true, type: 'fraud' })}
+              className="flex items-center gap-1.5 rounded-xl border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-rose-700 shadow-sm hover:bg-rose-50 dark:border-rose-800 dark:bg-slate-900 dark:text-rose-400 transition-all"
+            >
+              <ShieldAlert className="h-3.5 w-3.5" />
+              <span>Marcar Fraude</span>
+            </button>
+
             {/* Export Selected */}
             <button
               type="button"
-              onClick={handleBatchExport}
+              onClick={() => setModalAction({ isOpen: true, type: 'export' })}
               title="Exportar Transações Selecionadas em CSV"
               className="flex items-center gap-1.5 rounded-xl border border-indigo-300 bg-white px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-sm hover:bg-indigo-50 dark:border-indigo-700 dark:bg-slate-800 dark:text-indigo-300 transition-all"
             >
@@ -666,6 +736,16 @@ export const TransactionTableWithBulkTagging: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {modalAction && (
+        <BatchActionConfirmationModal
+          isOpen={modalAction.isOpen}
+          onClose={() => setModalAction(null)}
+          onConfirm={handleConfirmAction}
+          actionType={modalAction.type}
+          count={selectedIds.length}
+        />
       )}
     </div>
   );
