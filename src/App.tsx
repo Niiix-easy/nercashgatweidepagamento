@@ -131,17 +131,11 @@ export default function App() {
       try {
         return JSON.parse(saved);
       } catch {
-        // Fallback to default admin
+        // Return null if parsing fails
       }
     }
-    // Default admin user for Neer Software BR
-    return {
-      name: 'Maycon Quevedo (Neer Software BR)',
-      email: 'neersoftwarebr@gmail.com',
-      role: 'Super Admin Master & Director',
-      agency: '0001-9',
-      account: '100502-X'
-    };
+    // Default to null to show login page
+    return null;
   });
 
   const handleLoginSuccess = (userData: any) => {
